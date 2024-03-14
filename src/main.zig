@@ -1,5 +1,6 @@
 const std = @import("std");
 const Ast = @import("Ast.zig");
+const CodeGen = @import("CodeGen.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -20,6 +21,5 @@ pub fn main() !void {
     var tree = try Ast.parse(allocator, source);
     defer tree.deinit(allocator);
 
-    try tree.dump(tree.root);
-    std.debug.print("\n", .{});
+    CodeGen.genAsm(tree);
 }

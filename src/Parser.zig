@@ -50,7 +50,8 @@ pub fn expr(p: *Parser) Error!Node.Index {
                     },
                 });
             },
-            else => return result,
+            .r_paren, .eof => return result,
+            else => unreachable,
         }
     }
 }
@@ -102,7 +103,8 @@ fn primary(p: *Parser) !Node.Index {
             },
         }),
         .l_paren => {
-            const result = try p.expr();
+            _ = p.eatToken(.l_paren);
+            const result = try p.expr(); // There is another expr in parentheses
             _ = p.eatToken(.r_paren) orelse return Error.ParseError;
             return result;
         },
