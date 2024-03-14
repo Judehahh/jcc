@@ -4,6 +4,8 @@ pub const Token = struct {
     tag: Tag,
     loc: Loc,
 
+    pub const Index = usize;
+
     pub const Loc = struct {
         start: usize,
         end: usize,
@@ -24,6 +26,8 @@ pub const Token = struct {
         eof,
         plus,
         minus,
+        asterisk,
+        slash,
         l_paren,
         r_paren,
         semicolon,
@@ -44,6 +48,8 @@ pub const Token = struct {
 
                 .plux => "+",
                 .minus => "-",
+                .asterisk => "*",
+                .slash => "/",
                 .l_paren => "(",
                 .r_paren => ")",
                 .semicolon => ";",
@@ -159,6 +165,16 @@ pub fn next(self: *Tokenizer) Token {
                 },
                 '-' => {
                     result.tag = .minus;
+                    self.index += 1;
+                    break;
+                },
+                '*' => {
+                    result.tag = .asterisk;
+                    self.index += 1;
+                    break;
+                },
+                '/' => {
+                    result.tag = .slash;
                     self.index += 1;
                     break;
                 },
