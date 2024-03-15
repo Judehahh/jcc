@@ -79,6 +79,8 @@ pub const Node = struct {
         mul,
         /// lhs / rhs,
         div,
+        /// -un
+        negation,
         number_literal,
     };
 

@@ -4,3 +4,4 @@ zig-out/
 .ccls-cache/
 
 tests/
+test.sh

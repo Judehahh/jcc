@@ -22,9 +22,9 @@ fn addNode(p: *Parser, elem: Ast.Node) Allocator.Error!Node.Index {
 }
 
 /// Expr
-///  | Mul
-///  : Mul '+' Mul
-///  : Mul '-' Mul
+///  : Mul
+///  | Mul '+' Mul
+///  | Mul '-' Mul
 pub fn expr(p: *Parser) Error!Node.Index {
     var result = try p.mul();
 
@@ -57,10 +57,11 @@ pub fn expr(p: *Parser) Error!Node.Index {
 }
 
 /// Mul
-///  | Primary '*' Primary
-///  | Primary '/' Primary
+///  : Unary
+///  | Unary '*' Unary
+///  | Unary '/' Unary
 fn mul(p: *Parser) !Node.Index {
-    var result = try p.primary();
+    var result = try p.unary();
 
     while (true) {
         switch (p.tok_tags[p.tok_i]) {
@@ -70,7 +71,7 @@ fn mul(p: *Parser) !Node.Index {
                     .main_token = p.nextToken(),
                     .data = .{
                         .lhs = result,
-                        .rhs = try p.primary(),
+                        .rhs = try p.unary(),
                     },
                 });
             },
@@ -80,7 +81,7 @@ fn mul(p: *Parser) !Node.Index {
                     .main_token = p.nextToken(),
                     .data = .{
                         .lhs = result,
-                        .rhs = try p.primary(),
+                        .rhs = try p.unary(),
                     },
                 });
             },
@@ -89,10 +90,28 @@ fn mul(p: *Parser) !Node.Index {
     }
 }
 
+fn unary(p: *Parser) Error!Node.Index {
+    switch (p.tok_tags[p.tok_i]) {
+        .plus => {
+            _ = p.eatToken(.plus);
+            return p.unary();
+        },
+        .minus => return p.addNode(.{
+            .tag = .negation,
+            .main_token = p.nextToken(),
+            .data = .{
+                .lhs = try p.unary(),
+                .rhs = undefined,
+            },
+        }),
+        else => return p.primary(),
+    }
+}
+
 /// Primary
 ///  : '(' Expr ')'
 ///  | NUM_LIT
-fn primary(p: *Parser) !Node.Index {
+fn primary(p: *Parser) Error!Node.Index {
     switch (p.tok_tags[p.tok_i]) {
         .number_literal => return p.addNode(.{
             .tag = .number_literal,

@@ -13,14 +13,23 @@ pub fn genAsm(tree: Ast) void {
 }
 
 fn genExpr(tree: Ast, node: Node.Index) void {
-    if (tree.nodes.items(.tag)[node] == .number_literal) {
-        const num_token = tree.nodes.items(.main_token)[node];
-        const start = tree.tokens.items(.start)[num_token];
-        const end = tree.tokens.items(.end)[num_token];
-        const number = std.fmt.parseInt(u32, tree.souce[start..end], 10) catch unreachable;
-        std.debug.print("  li a0, {d}\n", .{number});
-        return;
+    switch (tree.nodes.items(.tag)[node]) {
+        .negation => {
+            genExpr(tree, tree.nodes.items(.data)[node].lhs);
+            std.debug.print("  neg a0, a0\n", .{});
+            return;
+        },
+        .number_literal => {
+            const num_token = tree.nodes.items(.main_token)[node];
+            const start = tree.tokens.items(.start)[num_token];
+            const end = tree.tokens.items(.end)[num_token];
+            const number = std.fmt.parseInt(u32, tree.souce[start..end], 10) catch unreachable;
+            std.debug.print("  li a0, {d}\n", .{number});
+            return;
+        },
+        else => {},
     }
+
     genExpr(tree, tree.nodes.items(.data)[node].rhs);
     push();
     genExpr(tree, tree.nodes.items(.data)[node].lhs);
