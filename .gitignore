@@ -5,3 +5,5 @@ zig-out/
 
 tests/
 test.sh
+tmp.s
+tmp

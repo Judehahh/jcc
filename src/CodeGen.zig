@@ -40,6 +40,20 @@ fn genExpr(tree: Ast, node: Node.Index) void {
         .sub => std.debug.print("  sub a0, a0, a1\n", .{}),
         .mul => std.debug.print("  mul a0, a0, a1\n", .{}),
         .div => std.debug.print("  div a0, a0, a1\n", .{}),
+        .equal_equal => {
+            std.debug.print("  xor a0, a0, a1\n", .{});
+            std.debug.print("  seqz a0, a0\n", .{});
+        },
+        .bang_equal => {
+            std.debug.print("  xor a0, a0, a1\n", .{});
+            std.debug.print("  snez a0, a0\n", .{});
+        },
+        .less_than => std.debug.print("  slt a0, a0, a1\n", .{}),
+        .less_or_equal => {
+            // a0<=a1 -> { a0=a1<a0, a0=a1^1 }
+            std.debug.print("  slt a0, a1, a0\n", .{});
+            std.debug.print("  xori a0, a0, 1\n", .{});
+        },
         else => @panic("invalid expression"),
     }
 }

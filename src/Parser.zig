@@ -21,37 +21,116 @@ fn addNode(p: *Parser, elem: Ast.Node) Allocator.Error!Node.Index {
     return result;
 }
 
-/// Expr
+/// Expr : Equation
+pub fn expr(p: *Parser) Error!Node.Index {
+    return p.equation();
+}
+
+/// Equation
+///  : Relation
+///  | Relation '==' Relation
+///  | Relation '!=' Relation
+fn equation(p: *Parser) Error!Node.Index {
+    var result = try p.relation();
+
+    while (true) {
+        switch (p.tok_tags[p.tok_i]) {
+            .equal_equal => result = try p.addNode(.{
+                .tag = .equal_equal,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = result,
+                    .rhs = try p.relation(),
+                },
+            }),
+            .bang_equal => result = try p.addNode(.{
+                .tag = .bang_equal,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = result,
+                    .rhs = try p.relation(),
+                },
+            }),
+            else => return result,
+        }
+    }
+}
+
+/// Relation
+///  : Add
+///  | Add '<' Add
+///  | Add '<=' Add
+///  | Add '>' Add
+///  | Add '>=' Add
+fn relation(p: *Parser) Error!Node.Index {
+    var result = try p.add();
+
+    while (true) {
+        switch (p.tok_tags[p.tok_i]) {
+            .angle_bracket_left => result = try p.addNode(.{
+                .tag = .less_than,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = result,
+                    .rhs = try p.add(),
+                },
+            }),
+            .angle_bracket_left_equal => result = try p.addNode(.{
+                .tag = .less_or_equal,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = result,
+                    .rhs = try p.add(),
+                },
+            }),
+            // Also set tag as less_than for '>' but swap lhs and rhs.
+            .angle_bracket_right => result = try p.addNode(.{
+                .tag = .less_than,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = try p.add(),
+                    .rhs = result,
+                },
+            }),
+            .angle_bracket_right_equal => result = try p.addNode(.{
+                .tag = .less_or_equal,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = try p.add(),
+                    .rhs = result,
+                },
+            }),
+            else => return result,
+        }
+    }
+}
+
+/// Add
 ///  : Mul
 ///  | Mul '+' Mul
 ///  | Mul '-' Mul
-pub fn expr(p: *Parser) Error!Node.Index {
+fn add(p: *Parser) Error!Node.Index {
     var result = try p.mul();
 
     while (true) {
         switch (p.tok_tags[p.tok_i]) {
-            .plus => {
-                result = try p.addNode(.{
-                    .tag = .add,
-                    .main_token = p.nextToken(),
-                    .data = .{
-                        .lhs = result,
-                        .rhs = try p.mul(),
-                    },
-                });
-            },
-            .minus => {
-                result = try p.addNode(.{
-                    .tag = .sub,
-                    .main_token = p.nextToken(),
-                    .data = .{
-                        .lhs = result,
-                        .rhs = try p.mul(),
-                    },
-                });
-            },
-            .r_paren, .eof => return result,
-            else => unreachable,
+            .plus => result = try p.addNode(.{
+                .tag = .add,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = result,
+                    .rhs = try p.mul(),
+                },
+            }),
+            .minus => result = try p.addNode(.{
+                .tag = .sub,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = result,
+                    .rhs = try p.mul(),
+                },
+            }),
+            else => return result,
         }
     }
 }
@@ -65,31 +144,31 @@ fn mul(p: *Parser) !Node.Index {
 
     while (true) {
         switch (p.tok_tags[p.tok_i]) {
-            .asterisk => {
-                result = try p.addNode(.{
-                    .tag = .mul,
-                    .main_token = p.nextToken(),
-                    .data = .{
-                        .lhs = result,
-                        .rhs = try p.unary(),
-                    },
-                });
-            },
-            .slash => {
-                result = try p.addNode(.{
-                    .tag = .div,
-                    .main_token = p.nextToken(),
-                    .data = .{
-                        .lhs = result,
-                        .rhs = try p.unary(),
-                    },
-                });
-            },
+            .asterisk => result = try p.addNode(.{
+                .tag = .mul,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = result,
+                    .rhs = try p.unary(),
+                },
+            }),
+            .slash => result = try p.addNode(.{
+                .tag = .div,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .lhs = result,
+                    .rhs = try p.unary(),
+                },
+            }),
             else => return result,
         }
     }
 }
 
+/// Unary
+///  : Primary
+///  | '+' Unary
+///  | '-' Unary
 fn unary(p: *Parser) Error!Node.Index {
     switch (p.tok_tags[p.tok_i]) {
         .plus => {
@@ -109,8 +188,8 @@ fn unary(p: *Parser) Error!Node.Index {
 }
 
 /// Primary
-///  : '(' Expr ')'
-///  | NUM_LIT
+///  : NUM_LIT
+///  | '(' Expr ')'
 fn primary(p: *Parser) Error!Node.Index {
     switch (p.tok_tags[p.tok_i]) {
         .number_literal => return p.addNode(.{

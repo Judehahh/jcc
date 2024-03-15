@@ -24,6 +24,10 @@ pub const Token = struct {
         invalid,
         identifier,
         eof,
+        bang,
+        equal,
+        equal_equal,
+        bang_equal,
         plus,
         minus,
         asterisk,
@@ -34,6 +38,10 @@ pub const Token = struct {
         l_brace,
         r_brace,
         number_literal,
+        angle_bracket_left,
+        angle_bracket_left_equal,
+        angle_bracket_right,
+        angle_bracket_right_equal,
 
         keyword_int,
         keyword_return,
@@ -46,7 +54,11 @@ pub const Token = struct {
                 .number_literal,
                 => null,
 
-                .plux => "+",
+                .bang => "!",
+                .equal => "=",
+                .equal_equal => "==",
+                .bang_equal => "!=",
+                .plus => "+",
                 .minus => "-",
                 .asterisk => "*",
                 .slash => "/",
@@ -55,6 +67,10 @@ pub const Token = struct {
                 .semicolon => ";",
                 .l_brace => "{",
                 .r_brace => "}",
+                .angle_bracket_left => "<",
+                .angle_bracket_left_equal => "<=",
+                .angle_bracket_right => ">",
+                .angle_bracket_right_equal => ">=",
 
                 .keyword_int => "int",
                 .keyword_return => "return",
@@ -92,14 +108,17 @@ pub fn init(buffer: [:0]const u8) Tokenizer {
     };
 }
 
-const State = enum {
-    start,
-    identifier,
-    int,
-};
-
 pub fn next(self: *Tokenizer) Token {
-    var state: State = .start;
+    var state: enum {
+        start,
+        identifier,
+        equal,
+        bang,
+        int,
+        angle_bracket_left,
+        angle_bracket_right,
+    } = .start;
+
     var result = Token{
         .tag = .eof,
         .loc = .{
@@ -128,6 +147,12 @@ pub fn next(self: *Tokenizer) Token {
                 'a'...'z', 'A'...'Z', '_' => {
                     state = .identifier;
                     result.tag = .identifier;
+                },
+                '=' => {
+                    state = .equal;
+                },
+                '!' => {
+                    state = .bang;
                 },
                 '(' => {
                     result.tag = .l_paren;
@@ -178,6 +203,12 @@ pub fn next(self: *Tokenizer) Token {
                     self.index += 1;
                     break;
                 },
+                '<' => {
+                    state = .angle_bracket_left;
+                },
+                '>' => {
+                    state = .angle_bracket_right;
+                },
                 else => {
                     result.tag = .invalid;
                     result.loc.end = self.index;
@@ -185,7 +216,6 @@ pub fn next(self: *Tokenizer) Token {
                     return result;
                 },
             },
-
             .identifier => switch (c) {
                 'a'...'z', 'A'...'Z', '_', '0'...'9' => {},
                 else => {
@@ -195,7 +225,50 @@ pub fn next(self: *Tokenizer) Token {
                     break;
                 },
             },
-
+            .equal => switch (c) {
+                '=' => {
+                    result.tag = .equal_equal;
+                    self.index += 1;
+                    break;
+                },
+                else => {
+                    result.tag = .equal;
+                    break;
+                },
+            },
+            .bang => switch (c) {
+                '=' => {
+                    result.tag = .bang_equal;
+                    self.index += 1;
+                    break;
+                },
+                else => {
+                    result.tag = .bang;
+                    break;
+                },
+            },
+            .angle_bracket_left => switch (c) {
+                '=' => {
+                    result.tag = .angle_bracket_left_equal;
+                    self.index += 1;
+                    break;
+                },
+                else => {
+                    result.tag = .angle_bracket_left;
+                    break;
+                },
+            },
+            .angle_bracket_right => switch (c) {
+                '=' => {
+                    result.tag = .angle_bracket_right_equal;
+                    self.index += 1;
+                    break;
+                },
+                else => {
+                    result.tag = .angle_bracket_right;
+                    break;
+                },
+            },
             .int => switch (c) {
                 '0'...'9' => {},
                 else => break,

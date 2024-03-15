@@ -81,7 +81,16 @@ pub const Node = struct {
         div,
         /// -un
         negation,
+        /// lhs and rhs both unused
         number_literal,
+        /// lhs == rhs
+        equal_equal,
+        /// lhs != rhs
+        bang_equal,
+        /// lhs < rhs, rhs > lhs
+        less_than,
+        /// lhs <= rhs, rhs >= lhs
+        less_or_equal,
     };
 
     pub const Data = struct {
