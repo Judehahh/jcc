@@ -9,7 +9,6 @@ const Ast = @This();
 souce: [:0]const u8,
 tokens: TokenList.Slice,
 nodes: NodeList.Slice,
-root: Node.Index,
 
 pub const TokenList = std.MultiArrayList(struct {
     tag: Token.Tag,
@@ -51,13 +50,12 @@ pub fn parse(gpa: std.mem.Allocator, source: [:0]const u8) !Ast {
     };
     defer parser.nodes.deinit(gpa);
 
-    const root = try parser.expr();
+    try parser.parseRoot();
 
     return Ast{
         .souce = source,
         .tokens = tokens.toOwnedSlice(),
         .nodes = parser.nodes.toOwnedSlice(),
-        .root = root,
     };
 }
 
@@ -71,6 +69,7 @@ pub const Node = struct {
     pub const Index = usize;
 
     pub const Tag = enum {
+        root,
         /// lhs + rhs
         add,
         /// lhs - rhs,
@@ -91,11 +90,14 @@ pub const Node = struct {
         less_than,
         /// lhs <= rhs, rhs >= lhs
         less_or_equal,
+        /// lhs;
+        expr_stmt,
     };
 
     pub const Data = struct {
         lhs: Index,
         rhs: Index,
+        next: Index = 0,
     };
 };
 

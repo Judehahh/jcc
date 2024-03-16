@@ -21,8 +21,47 @@ fn addNode(p: *Parser, elem: Ast.Node) Allocator.Error!Node.Index {
     return result;
 }
 
+/// Root -> Stmt -> Stmt -> ...
+pub fn parseRoot(p: *Parser) !void {
+    _ = try p.addNode(.{
+        .tag = .root,
+        .main_token = 0,
+        .data = undefined,
+    });
+
+    const first_stmt = try p.stmt();
+    var cur_stmt = first_stmt;
+    while (p.eatToken(.eof) == null) {
+        const next_stmt = try p.stmt();
+        p.nodes.items(.data)[cur_stmt].next = next_stmt;
+        cur_stmt = next_stmt;
+    }
+    p.nodes.items(.data)[0].next = first_stmt;
+}
+
+/// Stmt
+///  : ExprStmt
+pub fn stmt(p: *Parser) Error!Node.Index {
+    return p.exprStmt();
+}
+
+/// ExprStmt
+///  : Expr? ';'
+fn exprStmt(p: *Parser) Error!Node.Index {
+    const result = p.addNode(.{
+        .tag = .expr_stmt,
+        .main_token = 0,
+        .data = .{
+            .lhs = try p.expr(),
+            .rhs = undefined,
+        },
+    });
+    _ = p.eatToken(.semicolon) orelse return Error.ParseError;
+    return result;
+}
+
 /// Expr : Equation
-pub fn expr(p: *Parser) Error!Node.Index {
+fn expr(p: *Parser) Error!Node.Index {
     return p.equation();
 }
 

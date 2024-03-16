@@ -23,11 +23,10 @@ pub fn main() !void {
         if (std.os.argv.len != 2) @panic("Usage: jcc source");
         break :blk std.mem.span(std.os.argv[1]);
     };
+    defer if (input_from_file) allocator.free(source);
 
     var tree = try Ast.parse(allocator, source);
     defer tree.deinit(allocator);
 
     CodeGen.genAsm(tree);
-
-    if (input_from_file) allocator.free(source);
 }
