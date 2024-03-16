@@ -60,9 +60,28 @@ fn exprStmt(p: *Parser) Error!Node.Index {
     return result;
 }
 
-/// Expr : Equation
+/// Expr : Assign
 fn expr(p: *Parser) Error!Node.Index {
-    return p.equation();
+    return p.assign();
+}
+
+/// Assign
+///  : Equation ('=' Assign)?
+fn assign(p: *Parser) Error!Node.Index {
+    var result = try p.equation();
+
+    if (p.tok_tags[p.tok_i] == .equal) {
+        result = try p.addNode(.{
+            .tag = .assign_expr,
+            .main_token = p.nextToken(),
+            .data = .{
+                .lhs = result,
+                .rhs = try p.assign(),
+            },
+        });
+    }
+
+    return result;
 }
 
 /// Equation
@@ -228,11 +247,20 @@ fn unary(p: *Parser) Error!Node.Index {
 
 /// Primary
 ///  : NUM_LIT
+///  | IDENT
 ///  | '(' Expr ')'
 fn primary(p: *Parser) Error!Node.Index {
     switch (p.tok_tags[p.tok_i]) {
         .number_literal => return p.addNode(.{
             .tag = .number_literal,
+            .main_token = p.nextToken(),
+            .data = .{
+                .lhs = undefined,
+                .rhs = undefined,
+            },
+        }),
+        .identifier => return p.addNode(.{
+            .tag = .@"var",
             .main_token = p.nextToken(),
             .data = .{
                 .lhs = undefined,

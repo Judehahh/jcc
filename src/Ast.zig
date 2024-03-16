@@ -70,6 +70,10 @@ pub const Node = struct {
 
     pub const Tag = enum {
         root,
+
+        /// variable
+        @"var",
+
         /// lhs + rhs
         add,
         /// lhs - rhs,
@@ -90,8 +94,12 @@ pub const Node = struct {
         less_than,
         /// lhs <= rhs, rhs >= lhs
         less_or_equal,
+
         /// lhs;
         expr_stmt,
+
+        /// lhs = rhs
+        assign_expr,
     };
 
     pub const Data = struct {
@@ -100,17 +108,3 @@ pub const Node = struct {
         next: Index = 0,
     };
 };
-
-pub fn dump(tree: *Ast, node: Node.Index) !void {
-    if (tree.nodes.items(.tag)[node] == .number_literal) {
-        const num_token = tree.nodes.items(.main_token)[node];
-        const start = tree.tokens.items(.start)[num_token];
-        const end = tree.tokens.items(.end)[num_token];
-        const number = try std.fmt.parseInt(u32, tree.souce[start..end], 10);
-        std.debug.print("{d} ", .{number});
-        return;
-    }
-    try tree.dump(tree.nodes.items(.data)[node].rhs);
-    std.debug.print("{s} ", .{@tagName(tree.nodes.items(.tag)[node])});
-    try tree.dump(tree.nodes.items(.data)[node].lhs);
-}
