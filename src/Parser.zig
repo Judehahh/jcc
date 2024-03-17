@@ -26,17 +26,17 @@ pub fn parseRoot(p: *Parser) !void {
     _ = try p.addNode(.{
         .tag = .root,
         .main_token = 0,
-        .data = undefined,
+        .data = .{.stmt = undefined},
     });
 
     const first_stmt = try p.stmt();
     var cur_stmt = first_stmt;
     while (p.eatToken(.eof) == null) {
         const next_stmt = try p.stmt();
-        p.nodes.items(.data)[cur_stmt].next = next_stmt;
+        p.nodes.items(.data)[cur_stmt].stmt.next = next_stmt;
         cur_stmt = next_stmt;
     }
-    p.nodes.items(.data)[0].next = first_stmt;
+    p.nodes.items(.data)[0].stmt.next = first_stmt;
 }
 
 /// Stmt
@@ -51,10 +51,7 @@ fn exprStmt(p: *Parser) Error!Node.Index {
     const result = p.addNode(.{
         .tag = .expr_stmt,
         .main_token = 0,
-        .data = .{
-            .lhs = try p.expr(),
-            .rhs = undefined,
-        },
+        .data = .{ .stmt = .{ .lhs = try p.expr() } },
     });
     _ = p.eatToken(.semicolon) orelse return Error.ParseError;
     return result;
@@ -74,10 +71,10 @@ fn assign(p: *Parser) Error!Node.Index {
         result = try p.addNode(.{
             .tag = .assign_expr,
             .main_token = p.nextToken(),
-            .data = .{
+            .data = .{ .bin = .{
                 .lhs = result,
                 .rhs = try p.assign(),
-            },
+            } },
         });
     }
 
@@ -96,18 +93,18 @@ fn equation(p: *Parser) Error!Node.Index {
             .equal_equal => result = try p.addNode(.{
                 .tag = .equal_equal,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = result,
                     .rhs = try p.relation(),
-                },
+                } },
             }),
             .bang_equal => result = try p.addNode(.{
                 .tag = .bang_equal,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = result,
                     .rhs = try p.relation(),
-                },
+                } },
             }),
             else => return result,
         }
@@ -128,35 +125,35 @@ fn relation(p: *Parser) Error!Node.Index {
             .angle_bracket_left => result = try p.addNode(.{
                 .tag = .less_than,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = result,
                     .rhs = try p.add(),
-                },
+                } },
             }),
             .angle_bracket_left_equal => result = try p.addNode(.{
                 .tag = .less_or_equal,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = result,
                     .rhs = try p.add(),
-                },
+                } },
             }),
             // Also set tag as less_than for '>' but swap lhs and rhs.
             .angle_bracket_right => result = try p.addNode(.{
                 .tag = .less_than,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = try p.add(),
                     .rhs = result,
-                },
+                } },
             }),
             .angle_bracket_right_equal => result = try p.addNode(.{
                 .tag = .less_or_equal,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = try p.add(),
                     .rhs = result,
-                },
+                } },
             }),
             else => return result,
         }
@@ -175,18 +172,18 @@ fn add(p: *Parser) Error!Node.Index {
             .plus => result = try p.addNode(.{
                 .tag = .add,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = result,
                     .rhs = try p.mul(),
-                },
+                } },
             }),
             .minus => result = try p.addNode(.{
                 .tag = .sub,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = result,
                     .rhs = try p.mul(),
-                },
+                } },
             }),
             else => return result,
         }
@@ -205,18 +202,18 @@ fn mul(p: *Parser) !Node.Index {
             .asterisk => result = try p.addNode(.{
                 .tag = .mul,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = result,
                     .rhs = try p.unary(),
-                },
+                } },
             }),
             .slash => result = try p.addNode(.{
                 .tag = .div,
                 .main_token = p.nextToken(),
-                .data = .{
+                .data = .{ .bin = .{
                     .lhs = result,
                     .rhs = try p.unary(),
-                },
+                } },
             }),
             else => return result,
         }
@@ -236,10 +233,7 @@ fn unary(p: *Parser) Error!Node.Index {
         .minus => return p.addNode(.{
             .tag = .negation,
             .main_token = p.nextToken(),
-            .data = .{
-                .lhs = try p.unary(),
-                .rhs = undefined,
-            },
+            .data = .{ .un = try p.unary() },
         }),
         else => return p.primary(),
     }
@@ -254,18 +248,12 @@ fn primary(p: *Parser) Error!Node.Index {
         .number_literal => return p.addNode(.{
             .tag = .number_literal,
             .main_token = p.nextToken(),
-            .data = .{
-                .lhs = undefined,
-                .rhs = undefined,
-            },
+            .data = undefined,
         }),
         .identifier => return p.addNode(.{
             .tag = .@"var",
             .main_token = p.nextToken(),
-            .data = .{
-                .lhs = undefined,
-                .rhs = undefined,
-            },
+            .data = undefined,
         }),
         .l_paren => {
             _ = p.eatToken(.l_paren);

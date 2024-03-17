@@ -53,8 +53,8 @@ pub fn genAsm(tree: Ast) void {
         .tree = tree,
     };
 
-    var stmt = cg.getData(0).next;
-    while (stmt != 0) : (stmt = cg.getData(stmt).next) {
+    var stmt = cg.getData(0).stmt.next;
+    while (stmt != 0) : (stmt = cg.getData(stmt).stmt.next) {
         cg.genStmt(stmt);
         std.debug.assert(cg.Depth == 0);
     }
@@ -68,7 +68,7 @@ pub fn genAsm(tree: Ast) void {
 
 fn genStmt(cg: *CodeGen, node: Node.Index) void {
     if (cg.getTag(node) == .expr_stmt) {
-        cg.genExpr(cg.getData(node).lhs);
+        cg.genExpr(cg.getData(node).stmt.lhs);
         return;
     }
     @panic("invalid expression");
@@ -77,7 +77,7 @@ fn genStmt(cg: *CodeGen, node: Node.Index) void {
 fn genExpr(cg: *CodeGen, node: Node.Index) void {
     switch (cg.getTag(node)) {
         .negation => {
-            cg.genExpr(cg.getData(node).lhs);
+            cg.genExpr(cg.getData(node).un);
             std.debug.print("  neg a0, a0\n", .{});
             return;
         },
@@ -92,9 +92,9 @@ fn genExpr(cg: *CodeGen, node: Node.Index) void {
             return;
         },
         .assign_expr => {
-            cg.genAddr(cg.getData(node).lhs);
+            cg.genAddr(cg.getData(node).bin.lhs);
             cg.push();
-            cg.genExpr(cg.getData(node).rhs);
+            cg.genExpr(cg.getData(node).bin.rhs);
             cg.pop("a1");
             std.debug.print("  sd a0, 0(a1)\n", .{});
             return;
@@ -102,9 +102,9 @@ fn genExpr(cg: *CodeGen, node: Node.Index) void {
         else => {},
     }
 
-    cg.genExpr(cg.getData(node).rhs);
+    cg.genExpr(cg.getData(node).bin.rhs);
     cg.push();
-    cg.genExpr(cg.getData(node).lhs);
+    cg.genExpr(cg.getData(node).bin.lhs);
     cg.pop("a1");
 
     switch (cg.getTag(node)) {
