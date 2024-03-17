@@ -16,9 +16,6 @@ pub const TokenList = std.MultiArrayList(struct {
     end: Token.Index,
 });
 pub const NodeList = std.MultiArrayList(Node);
-pub const ObjectList = std.MultiArrayList(struct {
-    name: Token.Index,
-});
 
 pub fn deinit(tree: *Ast, gpa: Allocator) void {
     tree.nodes.deinit(gpa);

@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const Ast = @import("Ast.zig");
 const Node = Ast.Node;
 
@@ -6,6 +7,8 @@ const CodeGen = @This();
 
 Depth: usize = 0,
 tree: Ast,
+tmp_buf: [64]u8 = undefined,
+asm_buf: std.ArrayList(u8),
 
 /// Get the nodekind of a node.
 fn getTag(cg: *CodeGen, node: Node.Index) Node.Tag {
@@ -26,7 +29,13 @@ fn getStr(cg: *CodeGen, node: Node.Index) []const u8 {
     return cg.tree.souce[start..end];
 }
 
-pub fn genAsm(tree: Ast) void {
+/// Print asm code into the asm_buf.
+fn print(cg: *CodeGen, comptime fmt: []const u8, args: anytype) void {
+    const _str = std.fmt.bufPrint(&cg.tmp_buf, fmt, args) catch @panic("bufPrint error");
+    cg.asm_buf.appendSlice(_str) catch @panic("appendSlice error");
+}
+
+pub fn genAsm(tree: Ast, gpa: std.mem.Allocator) !void {
     std.debug.print("  .globl main\n", .{});
     std.debug.print("main:\n", .{});
 
@@ -46,18 +55,24 @@ pub fn genAsm(tree: Ast) void {
     std.debug.print("  addi sp, sp, -8\n", .{});
     std.debug.print("  sd fp, 0(sp)\n", .{});
     std.debug.print("  mv fp, sp\n", .{});
+
     std.debug.print("  addi sp, sp, -208\n", .{});
 
     var cg: CodeGen = .{
         .Depth = 0,
         .tree = tree,
+        .asm_buf = std.ArrayList(u8).init(gpa),
     };
+    defer cg.asm_buf.deinit();
 
     var stmt = cg.getData(0).stmt.next;
     while (stmt != 0) : (stmt = cg.getData(stmt).stmt.next) {
         cg.genStmt(stmt);
         std.debug.assert(cg.Depth == 0);
     }
+    const owned_asm = try cg.asm_buf.toOwnedSlice();
+    defer gpa.free(owned_asm);
+    std.debug.print("{s}", .{owned_asm});
 
     // Epilogue
     std.debug.print("  mv sp, fp\n", .{});
@@ -78,17 +93,17 @@ fn genExpr(cg: *CodeGen, node: Node.Index) void {
     switch (cg.getTag(node)) {
         .negation => {
             cg.genExpr(cg.getData(node).un);
-            std.debug.print("  neg a0, a0\n", .{});
+            cg.print("  neg a0, a0\n", .{});
             return;
         },
         .number_literal => {
             const number = std.fmt.parseInt(u32, cg.getStr(node), 10) catch unreachable;
-            std.debug.print("  li a0, {d}\n", .{number});
+            cg.print("  li a0, {d}\n", .{number});
             return;
         },
         .@"var" => {
             cg.genAddr(node);
-            std.debug.print("  ld a0, 0(a0)\n", .{});
+            cg.print("  ld a0, 0(a0)\n", .{});
             return;
         },
         .assign_expr => {
@@ -96,7 +111,7 @@ fn genExpr(cg: *CodeGen, node: Node.Index) void {
             cg.push();
             cg.genExpr(cg.getData(node).bin.rhs);
             cg.pop("a1");
-            std.debug.print("  sd a0, 0(a1)\n", .{});
+            cg.print("  sd a0, 0(a1)\n", .{});
             return;
         },
         else => {},
@@ -108,23 +123,23 @@ fn genExpr(cg: *CodeGen, node: Node.Index) void {
     cg.pop("a1");
 
     switch (cg.getTag(node)) {
-        .add => std.debug.print("  add a0, a0, a1\n", .{}),
-        .sub => std.debug.print("  sub a0, a0, a1\n", .{}),
-        .mul => std.debug.print("  mul a0, a0, a1\n", .{}),
-        .div => std.debug.print("  div a0, a0, a1\n", .{}),
+        .add => cg.print("  add a0, a0, a1\n", .{}),
+        .sub => cg.print("  sub a0, a0, a1\n", .{}),
+        .mul => cg.print("  mul a0, a0, a1\n", .{}),
+        .div => cg.print("  div a0, a0, a1\n", .{}),
         .equal_equal => {
-            std.debug.print("  xor a0, a0, a1\n", .{});
-            std.debug.print("  seqz a0, a0\n", .{});
+            cg.print("  xor a0, a0, a1\n", .{});
+            cg.print("  seqz a0, a0\n", .{});
         },
         .bang_equal => {
-            std.debug.print("  xor a0, a0, a1\n", .{});
-            std.debug.print("  snez a0, a0\n", .{});
+            cg.print("  xor a0, a0, a1\n", .{});
+            cg.print("  snez a0, a0\n", .{});
         },
-        .less_than => std.debug.print("  slt a0, a0, a1\n", .{}),
+        .less_than => cg.print("  slt a0, a0, a1\n", .{}),
         .less_or_equal => {
             // a0<=a1 -> { a0=a1<a0, a0=a1^1 }
-            std.debug.print("  slt a0, a1, a0\n", .{});
-            std.debug.print("  xori a0, a0, 1\n", .{});
+            cg.print("  slt a0, a1, a0\n", .{});
+            cg.print("  xori a0, a0, 1\n", .{});
         },
         else => @panic("invalid expression"),
     }
@@ -135,17 +150,17 @@ fn genAddr(cg: *CodeGen, node: Node.Index) void {
     if (cg.getTag(node) != .@"var") @panic("not an lvalue");
 
     const offset = (cg.getStr(node)[0] - 'a' + 1) * 8;
-    std.debug.print("  addi a0, fp, -{d}\n", .{offset});
+    cg.print("  addi a0, fp, -{d}\n", .{offset});
 }
 
 fn push(cg: *CodeGen) void {
-    std.debug.print("  addi sp, sp, -8\n", .{});
-    std.debug.print("  sd a0, 0(sp)\n", .{});
+    cg.print("  addi sp, sp, -8\n", .{});
+    cg.print("  sd a0, 0(sp)\n", .{});
     cg.Depth += 1;
 }
 
 fn pop(cg: *CodeGen, reg: []const u8) void {
-    std.debug.print("  ld {s}, 0(sp)\n", .{reg});
-    std.debug.print("  addi sp, sp, 8\n", .{});
+    cg.print("  ld {s}, 0(sp)\n", .{reg});
+    cg.print("  addi sp, sp, 8\n", .{});
     cg.Depth -= 1;
 }

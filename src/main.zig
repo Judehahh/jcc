@@ -28,5 +28,5 @@ pub fn main() !void {
     var tree = try Ast.parse(allocator, source);
     defer tree.deinit(allocator);
 
-    CodeGen.genAsm(tree);
+    try CodeGen.genAsm(tree, allocator);
 }
