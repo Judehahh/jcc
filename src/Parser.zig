@@ -26,7 +26,7 @@ pub fn parseRoot(p: *Parser) !void {
     _ = try p.addNode(.{
         .tag = .root,
         .main_token = 0,
-        .data = .{.stmt = undefined},
+        .data = .{ .stmt = undefined },
     });
 
     const first_stmt = try p.stmt();
@@ -41,7 +41,22 @@ pub fn parseRoot(p: *Parser) !void {
 
 /// Stmt
 ///  : ExprStmt
+///  | KEYWORD_return Expr? ';'
 pub fn stmt(p: *Parser) Error!Node.Index {
+    switch (p.tok_tags[p.tok_i]) {
+        .keyword_return => {
+            const result = p.addNode(.{
+                .tag = .return_stmt,
+                .main_token = p.nextToken(),
+                .data = .{
+                    .stmt = .{ .lhs = try p.expr() },
+                },
+            });
+            _ = p.eatToken(.semicolon) orelse return Error.ParseError;
+            return result;
+        },
+        else => {},
+    }
     return p.exprStmt();
 }
 

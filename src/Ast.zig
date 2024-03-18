@@ -95,9 +95,13 @@ pub const Node = struct {
         /// lhs <= rhs, rhs >= lhs
         less_or_equal,
 
-        /// lhs;
+        // ===== stmt =====
+        /// lhs ;
         expr_stmt,
+        /// return lhs ;
+        return_stmt,
 
+        // ===== expr =====
         /// lhs = rhs
         assign_expr,
     };

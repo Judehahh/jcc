@@ -71,14 +71,14 @@ pub fn genAsm(tree: Ast, gpa: std.mem.Allocator) Error!void {
     defer cg.asm_buf.deinit();
     defer cg.vars.deinit();
 
-    // Generate asm code for stmts into asm_buf, but write to stdout latter.
+    // Generate asm code for stmts into asm_buf, but write to stdout later.
     var stmt = cg.getData(0).stmt.next;
     while (stmt != 0) : (stmt = cg.getData(stmt).stmt.next) {
         cg.genStmt(stmt);
         std.debug.assert(cg.Depth == 0);
     }
 
-    // std.debug.print("cg.vars.items.len: {d}\n", .{cg.vars.items.len});
+    // Prepare stack size for local variables.
     const stackSize = alignTo(Node.Index, cg.vars.items.len * 8, 16);
     std.debug.print("  addi sp, sp, -{d}\n", .{stackSize});
 
@@ -88,6 +88,7 @@ pub fn genAsm(tree: Ast, gpa: std.mem.Allocator) Error!void {
     std.debug.print("{s}", .{owned_asm});
 
     // Epilogue
+    std.debug.print(".L.return:\n", .{});
     std.debug.print("  mv sp, fp\n", .{});
     std.debug.print("  ld fp, 0(sp)\n", .{});
     std.debug.print("  addi sp, sp, 8\n", .{});
@@ -95,9 +96,17 @@ pub fn genAsm(tree: Ast, gpa: std.mem.Allocator) Error!void {
 }
 
 fn genStmt(cg: *CodeGen, node: Node.Index) void {
-    if (cg.getTag(node) == .expr_stmt) {
-        cg.genExpr(cg.getData(node).stmt.lhs);
-        return;
+    switch (cg.getTag(node)) {
+        .expr_stmt => {
+            cg.genExpr(cg.getData(node).stmt.lhs);
+            return;
+        },
+        .return_stmt => {
+            cg.genExpr(cg.getData(node).stmt.lhs);
+            cg.print("  j .L.return\n", .{}); // unconditional jump to return lable
+            return;
+        },
+        else => {},
     }
     @panic("invalid expression");
 }
