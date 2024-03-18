@@ -86,6 +86,14 @@ pub fn stmt(p: *Parser) Error!Node.Index {
 /// exprStmt
 ///  : Expr? ';'
 fn exprStmt(p: *Parser) Error!Node.Index {
+    if (p.eatToken(.semicolon)) |token| {
+        return p.addNode(.{
+            .tag = .compound_stmt,
+            .main_token = token,
+            .data = .{ .stmt = undefined },
+        });
+    }
+
     const result = p.addNode(.{
         .tag = .expr_stmt,
         .main_token = 0,
