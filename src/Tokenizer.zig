@@ -13,6 +13,8 @@ pub const Token = struct {
 
     pub const keywords = std.ComptimeStringMap(Tag, .{
         .{ "int", .keyword_int },
+        .{ "if", .keyword_if },
+        .{ "else", .keyword_else },
         .{ "return", .keyword_return },
     });
 
@@ -44,6 +46,8 @@ pub const Token = struct {
         angle_bracket_right_equal,
 
         keyword_int,
+        keyword_if,
+        keyword_else,
         keyword_return,
 
         pub fn lexeme(tag: Tag) ?[]const u8 {
@@ -73,6 +77,8 @@ pub const Token = struct {
                 .angle_bracket_right_equal => ">=",
 
                 .keyword_int => "int",
+                .keyword_if => "if",
+                .keyword_else => "else",
                 .keyword_return => "return",
             };
         }

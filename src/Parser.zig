@@ -49,7 +49,7 @@ fn compoundStmt(p: *Parser) Error!Node.Index {
     var cur_stmt = first_stmt;
     while (p.eatToken(.r_brace) == null) {
         const next_stmt = try p.stmt();
-        p.nodes.items(.data)[cur_stmt].stmt.next = next_stmt;
+        p.nodes.items(.data)[cur_stmt].setNext(next_stmt);
         cur_stmt = next_stmt;
     }
 
@@ -62,6 +62,7 @@ fn compoundStmt(p: *Parser) Error!Node.Index {
 
 /// Stmt
 ///  : exprStmt
+///  | KEYWORD_if '(' Expr ')' stmt (KEYWORD_else stmt)?
 ///  | KEYWORD_return Expr? ';'
 ///  | '{' compoundStmt
 pub fn stmt(p: *Parser) Error!Node.Index {
@@ -75,6 +76,28 @@ pub fn stmt(p: *Parser) Error!Node.Index {
                 },
             });
             _ = p.eatToken(.semicolon) orelse return Error.ParseError;
+            return result;
+        },
+        .keyword_if => {
+            const result = try p.addNode(.{
+                .tag = .if_then_stmt,
+                .main_token = p.nextToken(),
+                .data = .{ .ifs = undefined },
+            });
+
+            _ = p.eatToken(.l_paren) orelse return Error.ParseError;
+            p.nodes.items(.data)[result].ifs.cond = try p.expr();
+            _ = p.eatToken(.r_paren) orelse return Error.ParseError;
+
+            const then = try p.stmt();
+            p.nodes.items(.data)[result].ifs.then = then;
+
+            if (p.eatToken(.keyword_else) != null) {
+                p.nodes.items(.tag)[result] = .if_then_else_stmt;
+                const els = try p.stmt();
+                p.nodes.items(.data)[result].ifs.els = els;
+            }
+
             return result;
         },
         .l_brace => return p.compoundStmt(),

@@ -98,17 +98,28 @@ pub const Node = struct {
         // ===== stmt =====
         /// lhs ;
         expr_stmt,
-        /// return lhs ;
+        /// return lhs;
         return_stmt,
         /// { lhs }
         compound_stmt,
+        /// if (cond) then;
+        if_then_stmt,
+        /// if (cond) then; else els;
+        if_then_else_stmt,
 
         // ===== expr =====
         /// lhs = rhs
         assign_expr,
     };
 
-    pub const Data = union {
+    const dataTag = enum {
+        un,
+        bin,
+        stmt,
+        ifs,
+    };
+
+    pub const Data = union(enum) {
         un: Index,
         bin: struct {
             lhs: Index,
@@ -118,5 +129,27 @@ pub const Node = struct {
             lhs: Index,
             next: Index = 0,
         },
+        ifs: struct {
+            cond: Index,
+            then: Index,
+            els: Index,
+            next: Index = 0,
+        },
+
+        pub fn getNext(self: Data) Index {
+            return switch (self) {
+                Data.stmt => self.stmt.next,
+                Data.ifs => self.ifs.next,
+                else => unreachable,
+            };
+        }
+
+        pub fn setNext(self: *Data, next: Index) void {
+            switch (self.*) {
+                Data.stmt => self.stmt.next = next,
+                Data.ifs => self.ifs.next = next,
+                else => unreachable,
+            }
+        }
     };
 };

@@ -12,36 +12,7 @@ tree: Ast,
 tmp_buf: [64]u8 = undefined,
 asm_buf: std.ArrayList(u8),
 vars: std.ArrayList([]const u8), // store local variables within a block
-
-/// Get the nodekind of a node.
-fn getTag(cg: *CodeGen, node: Node.Index) Node.Tag {
-    return cg.tree.nodes.items(.tag)[node];
-}
-
-/// Get the data of a node,
-/// which contains the index of lhs, rhs and the next node.
-fn getData(cg: *CodeGen, node: Node.Index) Node.Data {
-    return cg.tree.nodes.items(.data)[node];
-}
-
-/// Get the original string of a node.
-fn getStr(cg: *CodeGen, node: Node.Index) []const u8 {
-    const main_token = cg.tree.nodes.items(.main_token)[node];
-    const start = cg.tree.tokens.items(.start)[main_token];
-    const end = cg.tree.tokens.items(.end)[main_token];
-    return cg.tree.souce[start..end];
-}
-
-/// Print asm code into the asm_buf.
-fn print(cg: *CodeGen, comptime fmt: []const u8, args: anytype) void {
-    const _str = std.fmt.bufPrint(&cg.tmp_buf, fmt, args) catch @panic("bufPrint error");
-    cg.asm_buf.appendSlice(_str) catch @panic("appendSlice error");
-}
-
-/// Align "N" to integer multiple of "Align".
-fn alignTo(T: type, N: T, Align: T) T {
-    return (N + Align - 1) / Align * Align;
-}
+Count: u32 = 0, // a number used to count lable numbers
 
 // Generate risc-v asm code.
 pub fn genAsm(tree: Ast, gpa: std.mem.Allocator) Error!void {
@@ -96,7 +67,7 @@ fn genStmt(cg: *CodeGen, node: Node.Index) void {
     switch (cg.getTag(node)) {
         .compound_stmt => {
             var stmt = cg.getData(node).stmt.lhs; // get the first stmt in the block
-            while (stmt != 0) : (stmt = cg.getData(stmt).stmt.next) {
+            while (stmt != 0) : (stmt = cg.getData(stmt).getNext()) {
                 cg.genStmt(stmt);
             }
             return;
@@ -107,7 +78,28 @@ fn genStmt(cg: *CodeGen, node: Node.Index) void {
         },
         .return_stmt => {
             cg.genExpr(cg.getData(node).stmt.lhs);
-            cg.print("  j .L.return\n", .{}); // unconditional jump to return lable
+            // Unconditional jump to return lable.
+            cg.print("  j .L.return\n", .{});
+            return;
+        },
+        .if_then_stmt => {
+            const c = cg.count();
+            cg.genExpr(cg.getData(node).ifs.cond);
+            // If the value of the condition in if_stmt is 0, jump to end lable.
+            cg.print("  beqz a0, .L.end.{d}\n", .{c});
+            cg.genStmt(cg.getData(node).ifs.then);
+            cg.print(".L.end.{d}:\n", .{c});
+            return;
+        },
+        .if_then_else_stmt => {
+            const c = cg.count();
+            cg.genExpr(cg.getData(node).ifs.cond);
+            // If the value of the condition in if_stmt is 0, jump to end lable.
+            cg.print("  beqz a0, .L.else.{d}\n", .{c});
+            cg.genStmt(cg.getData(node).ifs.then);
+            cg.print(".L.else.{d}:\n", .{c});
+            cg.genStmt(cg.getData(node).ifs.els);
+            cg.print(".L.end.{d}:\n", .{c});
             return;
         },
         else => {},
@@ -198,4 +190,41 @@ fn pop(cg: *CodeGen, reg: []const u8) void {
     cg.print("  ld {s}, 0(sp)\n", .{reg});
     cg.print("  addi sp, sp, 8\n", .{});
     cg.Depth -= 1;
+}
+
+// ===== utils =====
+
+/// Get the nodekind of a node.
+fn getTag(cg: *CodeGen, node: Node.Index) Node.Tag {
+    return cg.tree.nodes.items(.tag)[node];
+}
+
+/// Get the data of a node,
+/// which contains the index of lhs, rhs and the next node.
+fn getData(cg: *CodeGen, node: Node.Index) Node.Data {
+    return cg.tree.nodes.items(.data)[node];
+}
+
+/// Get the original string of a node.
+fn getStr(cg: *CodeGen, node: Node.Index) []const u8 {
+    const main_token = cg.tree.nodes.items(.main_token)[node];
+    const start = cg.tree.tokens.items(.start)[main_token];
+    const end = cg.tree.tokens.items(.end)[main_token];
+    return cg.tree.souce[start..end];
+}
+
+/// Print asm code into the asm_buf.
+fn print(cg: *CodeGen, comptime fmt: []const u8, args: anytype) void {
+    const _str = std.fmt.bufPrint(&cg.tmp_buf, fmt, args) catch @panic("bufPrint error");
+    cg.asm_buf.appendSlice(_str) catch @panic("appendSlice error");
+}
+
+/// Align "N" to integer multiple of "Align".
+fn alignTo(T: type, N: T, Align: T) T {
+    return (N + Align - 1) / Align * Align;
+}
+
+fn count(cg: *CodeGen) u32 {
+    cg.Count += 1;
+    return cg.Count;
 }
