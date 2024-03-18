@@ -21,7 +21,7 @@ fn addNode(p: *Parser, elem: Ast.Node) Allocator.Error!Node.Index {
     return result;
 }
 
-/// Root -> Stmt -> Stmt -> ...
+/// Root -> compoundStmt -> compoundStmt -> ...
 pub fn parseRoot(p: *Parser) !void {
     _ = try p.addNode(.{
         .tag = .root,
@@ -29,19 +29,41 @@ pub fn parseRoot(p: *Parser) !void {
         .data = .{ .stmt = undefined },
     });
 
+    // const first_stmt = try p.stmt();
+    // var cur_stmt = first_stmt;
+    // while (p.eatToken(.eof) == null) {
+    //     const next_stmt = try p.stmt();
+    //     p.nodes.items(.data)[cur_stmt].stmt.next = next_stmt;
+    //     cur_stmt = next_stmt;
+    // }
+    const first_block = try p.compoundStmt();
+    p.nodes.items(.data)[0].stmt.lhs = first_block;
+}
+
+/// compoundStmt
+///  : '{' Stmt? '}'
+fn compoundStmt(p: *Parser) Error!Node.Index {
+    const l_brace = p.eatToken(.l_brace) orelse return Error.ParseError;
+
     const first_stmt = try p.stmt();
     var cur_stmt = first_stmt;
-    while (p.eatToken(.eof) == null) {
+    while (p.eatToken(.r_brace) == null) {
         const next_stmt = try p.stmt();
         p.nodes.items(.data)[cur_stmt].stmt.next = next_stmt;
         cur_stmt = next_stmt;
     }
-    p.nodes.items(.data)[0].stmt.next = first_stmt;
+
+    return try p.addNode(.{
+        .tag = .compound_stmt,
+        .main_token = l_brace,
+        .data = .{ .stmt = .{ .lhs = first_stmt } },
+    });
 }
 
 /// Stmt
-///  : ExprStmt
+///  : exprStmt
 ///  | KEYWORD_return Expr? ';'
+///  | '{' compoundStmt
 pub fn stmt(p: *Parser) Error!Node.Index {
     switch (p.tok_tags[p.tok_i]) {
         .keyword_return => {
@@ -55,12 +77,13 @@ pub fn stmt(p: *Parser) Error!Node.Index {
             _ = p.eatToken(.semicolon) orelse return Error.ParseError;
             return result;
         },
+        .l_brace => return p.compoundStmt(),
         else => {},
     }
     return p.exprStmt();
 }
 
-/// ExprStmt
+/// exprStmt
 ///  : Expr? ';'
 fn exprStmt(p: *Parser) Error!Node.Index {
     const result = p.addNode(.{

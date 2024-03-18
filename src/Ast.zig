@@ -100,6 +100,8 @@ pub const Node = struct {
         expr_stmt,
         /// return lhs ;
         return_stmt,
+        /// { lhs }
+        compound_stmt,
 
         // ===== expr =====
         /// lhs = rhs

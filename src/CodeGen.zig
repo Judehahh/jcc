@@ -72,11 +72,8 @@ pub fn genAsm(tree: Ast, gpa: std.mem.Allocator) Error!void {
     defer cg.vars.deinit();
 
     // Generate asm code for stmts into asm_buf, but write to stdout later.
-    var stmt = cg.getData(0).stmt.next;
-    while (stmt != 0) : (stmt = cg.getData(stmt).stmt.next) {
-        cg.genStmt(stmt);
-        std.debug.assert(cg.Depth == 0);
-    }
+    cg.genStmt(cg.getData(0).stmt.lhs);
+    std.debug.assert(cg.Depth == 0);
 
     // Prepare stack size for local variables.
     const stackSize = alignTo(Node.Index, cg.vars.items.len * 8, 16);
@@ -97,6 +94,13 @@ pub fn genAsm(tree: Ast, gpa: std.mem.Allocator) Error!void {
 
 fn genStmt(cg: *CodeGen, node: Node.Index) void {
     switch (cg.getTag(node)) {
+        .compound_stmt => {
+            var stmt = cg.getData(node).stmt.lhs; // get the first stmt in the block
+            while (stmt != 0) : (stmt = cg.getData(stmt).stmt.next) {
+                cg.genStmt(stmt);
+            }
+            return;
+        },
         .expr_stmt => {
             cg.genExpr(cg.getData(node).stmt.lhs);
             return;
