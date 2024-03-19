@@ -16,6 +16,7 @@ pub const Token = struct {
         .{ "if", .keyword_if },
         .{ "else", .keyword_else },
         .{ "for", .keyword_for },
+        .{ "while", .keyword_while },
         .{ "return", .keyword_return },
     });
 
@@ -50,6 +51,7 @@ pub const Token = struct {
         keyword_if,
         keyword_else,
         keyword_for,
+        keyword_while,
         keyword_return,
 
         pub fn lexeme(tag: Tag) ?[]const u8 {
@@ -82,6 +84,7 @@ pub const Token = struct {
                 .keyword_if => "if",
                 .keyword_else => "else",
                 .keyword_for => "for",
+                .keyword_for => "while",
                 .keyword_return => "return",
             };
         }

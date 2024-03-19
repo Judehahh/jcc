@@ -118,6 +118,16 @@ fn genStmt(cg: *CodeGen, node: Node.Index) void {
             cg.print(".L.end.{d}:\n", .{c});
             return;
         },
+        .while_stmt => {
+            const c = cg.count();
+            cg.print(".L.begin.{d}:\n", .{c});
+            cg.genExpr(cg.getData(node).ifs.cond);
+            cg.print("  beqz a0, .L.end.{d}\n", .{c});
+            cg.genStmt(cg.getData(node).ifs.then);
+            cg.print("  j .L.begin.{d}\n", .{c});
+            cg.print(".L.end.{d}:\n", .{c});
+            return;
+        },
         else => {},
     }
     @panic("invalid expression");

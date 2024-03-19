@@ -64,6 +64,7 @@ fn compoundStmt(p: *Parser) Error!Node.Index {
 ///  : exprStmt
 ///  | KEYWORD_if '(' Expr ')' stmt (KEYWORD_else stmt)?
 ///  | KEYWORD_for '(' exprStmt Expr? ';' Expr? ')' stmt
+///  | KEYWORD_while '(' Expr ')' stmt
 ///  | KEYWORD_return Expr? ';'
 ///  | '{' compoundStmt
 pub fn stmt(p: *Parser) Error!Node.Index {
@@ -87,7 +88,8 @@ pub fn stmt(p: *Parser) Error!Node.Index {
             });
 
             _ = p.eatToken(.l_paren) orelse return Error.ParseError;
-            p.nodes.items(.data)[result].ifs.cond = try p.expr();
+            const cond = try p.expr();
+            p.nodes.items(.data)[result].ifs.cond = cond;
             _ = p.eatToken(.r_paren) orelse return Error.ParseError;
 
             const then = try p.stmt();
@@ -109,10 +111,12 @@ pub fn stmt(p: *Parser) Error!Node.Index {
             });
 
             _ = p.eatToken(.l_paren) orelse return Error.ParseError;
-            p.nodes.items(.data)[result].fors.init = try p.exprStmt();
+            const init = try p.exprStmt();
+            p.nodes.items(.data)[result].fors.init = init;
             // The first semicolon is eaten by exprStmt().
             if (p.eatToken(.semicolon) == null) {
-                p.nodes.items(.data)[result].fors.cond = try p.expr();
+                const cond = try p.expr();
+                p.nodes.items(.data)[result].fors.cond = cond;
                 _ = p.eatToken(.semicolon) orelse return Error.ParseError;
             }
             if (p.eatToken(.r_paren) == null) {
@@ -123,6 +127,23 @@ pub fn stmt(p: *Parser) Error!Node.Index {
 
             const then = try p.stmt();
             p.nodes.items(.data)[result].fors.then = then;
+
+            return result;
+        },
+        .keyword_while => {
+            const result = try p.addNode(.{
+                .tag = .while_stmt,
+                .main_token = p.nextToken(),
+                .data = .{ .ifs = undefined },
+            });
+
+            _ = p.eatToken(.l_paren) orelse return Error.ParseError;
+            const cond = try p.expr();
+            p.nodes.items(.data)[result].ifs.cond = cond;
+            _ = p.eatToken(.r_paren) orelse return Error.ParseError;
+
+            const then = try p.stmt();
+            p.nodes.items(.data)[result].ifs.then = then;
 
             return result;
         },

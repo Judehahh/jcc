@@ -108,6 +108,8 @@ pub const Node = struct {
         if_then_else_stmt,
         /// for (init; cond; inc) then
         for_stmt,
+        /// while (cond) then
+        while_stmt,
 
         // ===== expr =====
         /// lhs = rhs
