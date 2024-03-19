@@ -63,6 +63,7 @@ fn compoundStmt(p: *Parser) Error!Node.Index {
 /// Stmt
 ///  : exprStmt
 ///  | KEYWORD_if '(' Expr ')' stmt (KEYWORD_else stmt)?
+///  | KEYWORD_for '(' exprStmt Expr? ';' Expr? ')' stmt
 ///  | KEYWORD_return Expr? ';'
 ///  | '{' compoundStmt
 pub fn stmt(p: *Parser) Error!Node.Index {
@@ -97,6 +98,31 @@ pub fn stmt(p: *Parser) Error!Node.Index {
                 const els = try p.stmt();
                 p.nodes.items(.data)[result].ifs.els = els;
             }
+
+            return result;
+        },
+        .keyword_for => {
+            const result = try p.addNode(.{
+                .tag = .for_stmt,
+                .main_token = p.nextToken(),
+                .data = .{ .fors = undefined },
+            });
+
+            _ = p.eatToken(.l_paren) orelse return Error.ParseError;
+            p.nodes.items(.data)[result].fors.init = try p.exprStmt();
+            // The first semicolon is eaten by exprStmt().
+            if (p.eatToken(.semicolon) == null) {
+                p.nodes.items(.data)[result].fors.cond = try p.expr();
+                _ = p.eatToken(.semicolon) orelse return Error.ParseError;
+            }
+            if (p.eatToken(.r_paren) == null) {
+                const inc = try p.expr();
+                p.nodes.items(.data)[result].fors.inc = inc;
+                _ = p.eatToken(.r_paren) orelse return Error.ParseError;
+            }
+
+            const then = try p.stmt();
+            p.nodes.items(.data)[result].fors.then = then;
 
             return result;
         },

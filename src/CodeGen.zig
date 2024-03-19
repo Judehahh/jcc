@@ -102,6 +102,22 @@ fn genStmt(cg: *CodeGen, node: Node.Index) void {
             cg.print(".L.end.{d}:\n", .{c});
             return;
         },
+        .for_stmt => {
+            const c = cg.count();
+            cg.genStmt(cg.getData(node).fors.init);
+            cg.print(".L.begin.{d}:\n", .{c});
+            if (cg.getData(node).fors.cond) |cond| {
+                cg.genExpr(cond);
+                cg.print("  beqz a0, .L.end.{d}\n", .{c});
+            }
+            cg.genStmt(cg.getData(node).fors.then);
+            if (cg.getData(node).fors.inc) |inc| {
+                cg.genExpr(inc);
+            }
+            cg.print("  j .L.begin.{d}\n", .{c});
+            cg.print(".L.end.{d}:\n", .{c});
+            return;
+        },
         else => {},
     }
     @panic("invalid expression");

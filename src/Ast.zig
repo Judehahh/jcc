@@ -106,6 +106,8 @@ pub const Node = struct {
         if_then_stmt,
         /// if (cond) then; else els;
         if_then_else_stmt,
+        /// for (init; cond; inc) then
+        for_stmt,
 
         // ===== expr =====
         /// lhs = rhs
@@ -135,11 +137,19 @@ pub const Node = struct {
             els: Index,
             next: Index = 0,
         },
+        fors: struct {
+            init: Index,
+            cond: ?Index = null,
+            inc: ?Index = null,
+            then: Index,
+            next: Index = 0,
+        },
 
         pub fn getNext(self: Data) Index {
             return switch (self) {
                 Data.stmt => self.stmt.next,
                 Data.ifs => self.ifs.next,
+                Data.fors => self.fors.next,
                 else => unreachable,
             };
         }
@@ -148,6 +158,7 @@ pub const Node = struct {
             switch (self.*) {
                 Data.stmt => self.stmt.next = next,
                 Data.ifs => self.ifs.next = next,
+                Data.fors => self.fors.next = next,
                 else => unreachable,
             }
         }
