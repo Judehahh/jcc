@@ -36,6 +36,7 @@ pub const Token = struct {
         minus,
         asterisk,
         slash,
+        ampersand,
         l_paren,
         r_paren,
         semicolon,
@@ -70,6 +71,7 @@ pub const Token = struct {
                 .minus => "-",
                 .asterisk => "*",
                 .slash => "/",
+                .ampersand => "&",
                 .l_paren => "(",
                 .r_paren => ")",
                 .semicolon => ";",
@@ -212,6 +214,11 @@ pub fn next(self: *Tokenizer) Token {
                 },
                 '/' => {
                     result.tag = .slash;
+                    self.index += 1;
+                    break;
+                },
+                '&' => {
+                    result.tag = .ampersand;
                     self.index += 1;
                     break;
                 },

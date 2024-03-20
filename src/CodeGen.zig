@@ -150,6 +150,15 @@ fn genExpr(cg: *CodeGen, node: Node.Index) void {
             cg.print("  ld a0, 0(a0)\n", .{});
             return;
         },
+        .deref => {
+            cg.genExpr(cg.getData(node).un);
+            cg.print("  ld a0, 0(a0)\n", .{});
+            return;
+        },
+        .address_of => {
+            cg.genAddr(cg.getData(node).un);
+            return;
+        },
         .assign_expr => {
             cg.genAddr(cg.getData(node).bin.lhs);
             cg.push();
@@ -191,19 +200,27 @@ fn genExpr(cg: *CodeGen, node: Node.Index) void {
 
 /// Generate an address for a variable node into "a0".
 fn genAddr(cg: *CodeGen, node: Node.Index) void {
-    if (cg.getTag(node) != .@"var") @panic("not an lvalue");
+    switch (cg.getTag(node)) {
+        .@"var" => {
+            const name = cg.getStr(node);
 
-    const name = cg.getStr(node);
+            // Allocate 8 bytes per variable.
+            const offset = 8 * for (cg.vars.items, 0..) |item, index| {
+                if (std.mem.eql(u8, item, name)) break index + 1;
+            } else blk: {
+                cg.vars.append(name) catch @panic("append vars failed");
+                break :blk cg.vars.items.len;
+            };
 
-    // Allocate 8 bytes per variable.
-    const offset = 8 * for (cg.vars.items, 0..) |item, index| {
-        if (std.mem.eql(u8, item, name)) break index + 1;
-    } else blk: {
-        cg.vars.append(name) catch @panic("append vars failed");
-        break :blk cg.vars.items.len;
-    };
-
-    cg.print("  addi a0, fp, -{d}\n", .{offset});
+            cg.print("  addi a0, fp, -{d}\n", .{offset});
+        },
+        .deref => {
+            cg.genExpr(cg.getData(node).un);
+        },
+        else => {
+            @panic("not an lvalue");
+        },
+    }
 }
 
 fn push(cg: *CodeGen) void {

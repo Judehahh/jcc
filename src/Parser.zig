@@ -340,6 +340,8 @@ fn mul(p: *Parser) !Node.Index {
 ///  : Primary
 ///  | '+' Unary
 ///  | '-' Unary
+///  | '*' Unary
+///  | '&' Unary
 fn unary(p: *Parser) Error!Node.Index {
     switch (p.tok_tags[p.tok_i]) {
         .plus => {
@@ -348,6 +350,16 @@ fn unary(p: *Parser) Error!Node.Index {
         },
         .minus => return p.addNode(.{
             .tag = .negation,
+            .main_token = p.nextToken(),
+            .data = .{ .un = try p.unary() },
+        }),
+        .asterisk => return p.addNode(.{
+            .tag = .deref,
+            .main_token = p.nextToken(),
+            .data = .{ .un = try p.unary() },
+        }),
+        .ampersand => return p.addNode(.{
+            .tag = .address_of,
             .main_token = p.nextToken(),
             .data = .{ .un = try p.unary() },
         }),

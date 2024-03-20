@@ -84,6 +84,10 @@ pub const Node = struct {
         div,
         /// -un
         negation,
+        /// *un
+        deref,
+        /// &un
+        address_of,
         /// lhs and rhs both unused
         number_literal,
         /// lhs == rhs
